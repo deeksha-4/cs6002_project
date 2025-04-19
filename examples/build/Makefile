@@ -1,15 +1,21 @@
 # Copyright 2025, Gurobi Optimization, LLC
 
+GUROBI_HOME ?= /home/deeksha/gurobi1003/linux64
+INC      = -I$(GUROBI_HOME)/include
+CLIB     = -L$(GUROBI_HOME)/lib -lgurobi100
+CPPLIB   = -L$(GUROBI_HOME)/lib -lgurobi_c++ -lgurobi100
+
+
 PLATFORM = linux64
 TWOUP    = ..
 KEEPTU   = ../..
-INC      = $(TWOUP)/../include/
+# INC      = $(TWOUP)/../include/
 CC       = gcc
 CPP      = g++
 CARGS    = -m64 -g
 CPPARGS  = -std=c++98 -m64 -g
-CLIB     = -L$(TWOUP)/../lib -lgurobi120
-CPPLIB   = -L$(TWOUP)/../lib -lgurobi_c++ -lgurobi120
+# CLIB     = -L$(TWOUP)/../lib -lgurobi120
+# CPPLIB   = -L$(TWOUP)/../lib -lgurobi_c++ -lgurobi120
 JSRC     = $(TWOUP)/java
 CLASSDIR = -classpath $(TWOUP)/../lib/gurobi.jar:.
 JFLAG    = -d . $(CLASSDIR)
