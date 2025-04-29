@@ -33,8 +33,29 @@ try:
     # Example data
     b = [2, 2]
     R = [[2], []]
-    source = [1]  # Source is connected to players 1 and 2
+    source = [1]  # Source is connected to player 1 
     num_players = len(b)
+
+    # f[i][v] = probability player i has value v
+    f = []
+    for i in range(num_players):
+        vi_range = range(b[i] + 1)
+        prob = 1.0 / len(vi_range)
+        f_i = {v: prob for v in vi_range}
+        f.append(f_i)
+
+    # h[i][r_i] = probability player i reports set r_i (singleton dist on R[i])
+    h = []
+    for i in range(num_players):
+        r_powerset = powerset(R[i])
+        h_i = {frozenset(r): 0.0 for r in r_powerset}
+        h_i[frozenset(R[i])] = 1.0
+        h.append(h_i)
+
+    # Optional: pretty print
+    # for i in range(num_players):
+    #     print(f"f[{i}] = {f[i]}")
+    #     print(f"h[{i}] = { {tuple(r): p for r, p in h[i].items()} }")
 
     # Generate all possible (v_i, r_i) pairs for each i
     options_per_i = []
