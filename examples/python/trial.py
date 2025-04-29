@@ -1,5 +1,6 @@
 from gurobipy import Model, GRB
 from itertools import product, chain, combinations
+from collections import defaultdict, deque
 
 # Generate powerset of a list
 def powerset(s):
@@ -13,12 +14,26 @@ def make_theta_name(v_r_list):
         parts.append(f"{v}_{{{r_str}}}")
     return f"theta_" + "_".join(parts)
 
+# Perform DFS to find informed players given a strategy profile
+def get_informed_players(source_nodes, reported_edges, num_players):
+    visited = set(source_nodes)
+    stack = list(source_nodes)
+
+    while stack:
+        u = stack.pop()
+        for v in reported_edges[u]:
+            if v not in visited:
+                visited.add(v)
+                stack.append(v)
+    return visited
+
 try:
     model = Model()
 
     # Example data
-    b = [2, 1]               # For i=0: v ∈ [0,2]; for i=1: v ∈ [0,1]
-    R = [[1, 2], [3]]        # R₀ = {1,2}; R₁ = {3}
+    b = [2, 2]
+    R = [[2], []]
+    source = [1]  # Source is connected to players 1 and 2
     num_players = len(b)
 
     # Generate all possible (v_i, r_i) pairs for each i
@@ -30,15 +45,15 @@ try:
         options_per_i.append(options)
 
     theta_vars = {}
-    p_vars = {i: {} for i in range(num_players)}  # Nested dict: p_vars[i][combo]
-    g_vars = {i: {} for i in range(num_players)}
+    p_vars = {i: {} for i in range(1, num_players + 1)}
+    g_vars = {i: {} for i in range(1, num_players + 1)}
 
     for combo in product(*options_per_i):
         var_name = make_theta_name(combo)
-        theta_var = model.addVar(vtype=GRB.BINARY, name=var_name)
+        theta_var = model.addVar(vtype=GRB.CONTINUOUS, name=var_name)
         theta_vars[combo] = theta_var
 
-        for i in range(num_players):
+        for i in range(1, num_players + 1):
             p_var = model.addVar(lb=0.0, name=f"p{i}_{var_name}")
             g_var = model.addVar(lb=0.0, name=f"g{i}_{var_name}")
             p_vars[i][combo] = p_var
@@ -46,11 +61,31 @@ try:
 
     model.update()
 
-    # Print all created variables
+    # Add constraints to force g_i and p_i = 0 for uninformed players
     for combo in theta_vars:
+        # Build the reported network graph from this strategy profile
+        reported_edges = defaultdict(set)
+        for i, (_, r_i) in enumerate(combo):
+            player_id = i + 1
+            for neighbor in r_i:
+                reported_edges[player_id].add(neighbor)
+
+        # Perform DFS from source to find informed players
+        informed = get_informed_players(source, reported_edges, num_players)
         print(f"Theta: {theta_vars[combo].VarName}")
-        for i in range(num_players):
-            print(f"  P{i}: {p_vars[i][combo].VarName}, G{i}: {g_vars[i][combo].VarName}")
+        print(f"Informed players: {informed}")
+        print()
+        # For each uninformed player, force g_i = 0 and p_i = 0
+        for i in range(1, num_players + 1):
+            if i not in informed:
+                model.addConstr(g_vars[i][combo] == 0, name=f"uninformed_g{i}_{make_theta_name(combo)}")
+                model.addConstr(p_vars[i][combo] == 0, name=f"uninformed_p{i}_{make_theta_name(combo)}")
+        
+    # Print all created variables
+    # for combo in theta_vars:
+    #     print(f"Theta: {theta_vars[combo].VarName}")
+        # for i in range(1,num_players+1):
+        #     print(f"  P{i}: {p_vars[i][combo].VarName}, G{i}: {g_vars[i][combo].VarName}")
 
 except Exception as e:
     print("Exception during optimization")
