@@ -82,8 +82,17 @@ try:
 
     model.update()
 
-    # Add constraints to force g_i and p_i = 0 for uninformed players
     for combo in theta_vars:
+        
+        # Bound each g_i between 0 and 1
+        for i in range(1, num_players + 1):
+            model.addConstr(g_vars[i][combo] <= 1, name=f"alloc_upper_g{i}_{make_theta_name(combo)}")
+            # Lower bound is already 0 from variable declaration
+
+        # Ensure sum of allocations over all players is 1
+        alloc_sum = sum(g_vars[i][combo] for i in range(1, num_players + 1))
+        model.addConstr(alloc_sum == 1, name=f"sum_alloc_{make_theta_name(combo)}")
+
         # Build the reported network graph from this strategy profile
         reported_edges = defaultdict(set)
         for i, (_, r_i) in enumerate(combo):
