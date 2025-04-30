@@ -31,9 +31,9 @@ try:
     model = Model()
 
     # Example data
-    b = [2, 2]
-    R = [[2], []]
-    source = [1]  # Source is connected to player 1 
+    b = [100, 100]
+    R = [[], []]
+    source = [1, 2]  # Players which are connected to source
     num_players = len(b)
 
     # f[i][v] = probability player i has value v
@@ -65,18 +65,17 @@ try:
         options = [(v, frozenset(r)) for v in vi_range for r in ri_powerset]
         options_per_i.append(options)
 
-    theta_vars = {}
+    theta_vars = set()
     p_vars = {i: {} for i in range(1, num_players + 1)}
     g_vars = {i: {} for i in range(1, num_players + 1)}
 
     for combo in product(*options_per_i):
+        theta_vars.add(combo)
         var_name = make_theta_name(combo)
-        theta_var = model.addVar(vtype=GRB.CONTINUOUS, name=var_name)
-        theta_vars[combo] = theta_var
-
+        # print(var_name)
         for i in range(1, num_players + 1):
-            p_var = model.addVar(lb=0.0, name=f"p{i}_{var_name}")
-            g_var = model.addVar(lb=0.0, name=f"g{i}_{var_name}")
+            p_var = model.addVar(vtype=GRB.CONTINUOUS, name=f"p{i}_{var_name}")
+            g_var = model.addVar(vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name=f"g{i}_{var_name}")
             p_vars[i][combo] = p_var
             g_vars[i][combo] = g_var
 
@@ -85,11 +84,6 @@ try:
 
     for combo in theta_vars:
         
-        # Bound each g_i between 0 and 1
-        for i in range(1, num_players + 1):
-            model.addConstr(g_vars[i][combo] <= 1, name=f"alloc_upper_g{i}_{make_theta_name(combo)}")
-            # Lower bound is already 0 from variable declaration
-
         # Ensure sum of allocations over all players is 1
         alloc_sum = sum(g_vars[i][combo] for i in range(1, num_players + 1))
         model.addConstr(alloc_sum == 1, name=f"sum_alloc_{make_theta_name(combo)}")
@@ -103,9 +97,11 @@ try:
 
         # Perform DFS from source to find informed players
         informed = get_informed_players(source, reported_edges, num_players)
-        print(f"Theta: {theta_vars[combo].VarName}")
-        print(f"Informed players: {informed}")
-        print()
+        
+        # print(f"Theta: {theta_vars[combo].VarName}")
+        # print(f"Informed players: {informed}")
+        # print()
+
         # For each uninformed player, force g_i = 0 and p_i = 0
         for i in range(1, num_players + 1):
             if i not in informed:
@@ -218,6 +214,20 @@ try:
                     rhs = v_i * alpha[i][v_i][r_i_prime] - pay[i][v_i][r_i_prime]
                     model.addConstr(lhs >= rhs, name=f"IC_rep_i{i}_v{v_i}_r{''.join(map(str, sorted(r_i)))}_r'{''.join(map(str, sorted(r_i_prime)))}")
 
+    # Define the objective: maximize expected revenue
+    objective_expr = 0
+
+    for i in range(1, num_players + 1):
+        vi_range = range(b[i - 1] + 1)
+        R_i = frozenset(R[i - 1])  # fixed truthful report
+
+        for v_i in vi_range:
+            prob = f[i - 1][v_i]  # f_i(v_i)
+            payment = pay[i][v_i][R_i]
+            objective_expr += prob * payment
+
+    model.setObjective(objective_expr, GRB.MAXIMIZE)
+    model.optimize()
 
 except Exception as e:
     print("Exception during optimization")
