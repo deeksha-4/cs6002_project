@@ -118,52 +118,106 @@ try:
         # for i in range(1,num_players+1):
         #     print(f"  P{i}: {p_vars[i][combo].VarName}, G{i}: {g_vars[i][combo].VarName}")
 
-    # Compute α_i(v_i) for all i and v_i
-    alpha = {i: defaultdict(float) for i in range(1, num_players + 1)}
+    # Compute α_i(v_i, r_i) for all i, v_i, r_i
+    alpha = {i: defaultdict(lambda: defaultdict(float)) for i in range(1, num_players + 1)}
 
     for i in range(1, num_players + 1):
         vi_range = range(b[i - 1] + 1)
+        ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
+
         for v_i in vi_range:
-            alpha_sum_expr = 0
-            for combo in theta_vars: # Sum over all v_(-i)
-                v_r_i = combo[i - 1]
-                if v_r_i[0] != v_i:
-                    continue
-
-                # Extract product of f_j(v_j) over j ≠ i
-                product_fj = 1.0
-                for j in range(1, num_players + 1):
-                    if j == i:
+            for r_i in ri_powerset:
+                alpha_sum_expr = 0
+                for combo in theta_vars:
+                    v_r_i = combo[i - 1]
+                    if v_r_i[0] != v_i or v_r_i[1] != r_i:
                         continue
-                    v_j = combo[j - 1][0]
-                    product_fj *= f[j - 1][v_j]
 
-                alpha_sum_expr += product_fj * g_vars[i][combo]
-            alpha[i][v_i] = alpha_sum_expr
+                    # Multiply over other players' f_j(v_j)
+                    product_fj = 1.0
+                    for j in range(1, num_players + 1):
+                        if j == i:
+                            continue
+                        v_j = combo[j - 1][0]
+                        product_fj *= f[j - 1][v_j]
 
-    # Compute pay_i(v_i) for all i and v_i 
+                    alpha_sum_expr += product_fj * g_vars[i][combo]
 
-    pay = {i: defaultdict(float) for i in range(1, num_players + 1)}
+                alpha[i][v_i][r_i] = alpha_sum_expr
+
+    # Add monotonicity constraints: αᵢ(vᵢ+1, rᵢ) ≥ αᵢ(vᵢ, rᵢ)
+    for i in range(1, num_players + 1):
+        vi_range = range(b[i - 1] + 1)
+        ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
+
+        for r_i in ri_powerset:
+            for v_i in vi_range[:-1]:  # skip last since we compare v_i to v_i+1
+                alpha_current = alpha[i][v_i][r_i]
+                alpha_next = alpha[i][v_i + 1][r_i]
+                model.addConstr(alpha_next >= alpha_current,
+                                name=f"monotonicity_alpha_i{i}_r{''.join(map(str, sorted(r_i)))}_v{v_i}")
+
+
+    # Compute pay_i(v_i, r_i) for all i, v_i, r_i
+    pay = {i: defaultdict(lambda: defaultdict(float)) for i in range(1, num_players + 1)}
 
     for i in range(1, num_players + 1):
         vi_range = range(b[i - 1] + 1)
+        ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
+
         for v_i in vi_range:
-            pay_sum_expr = 0
-            for combo in theta_vars: # Sum over all v_(-i)
-                v_r_i = combo[i - 1]
-                if v_r_i[0] != v_i:
-                    continue
-
-                # Extract product of f_j(v_j) over j ≠ i
-                product_fj = 1.0
-                for j in range(1, num_players + 1):
-                    if j == i:
+            for r_i in ri_powerset:
+                pay_sum_expr = 0
+                for combo in theta_vars:
+                    v_r_i = combo[i - 1]
+                    if v_r_i[0] != v_i or v_r_i[1] != r_i:
                         continue
-                    v_j = combo[j - 1][0]
-                    product_fj *= f[j - 1][v_j]
 
-                pay_sum_expr += product_fj * p_vars[i][combo]
-            pay[i][v_i] = pay_sum_expr
+                    product_fj = 1.0
+                    for j in range(1, num_players + 1):
+                        if j == i:
+                            continue
+                        v_j = combo[j - 1][0]
+                        product_fj *= f[j - 1][v_j]
+
+                    pay_sum_expr += product_fj * p_vars[i][combo]
+
+                pay[i][v_i][r_i] = pay_sum_expr
+
+    # Add constraints: pay_i(0, r_i) ≤ 0 for all i, r_i
+    for i in range(1, num_players + 1):
+        ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
+
+        for r_i in ri_powerset:
+            pay_expr = pay[i][0][r_i]
+            model.addConstr(pay_expr <= 0, name=f"pay0_upper_i{i}_r{''.join(map(str, sorted(r_i)))}")
+
+    # Add Valuation IC constraints
+    for i in range(1, num_players + 1):
+        vi_range = range(b[i - 1] + 1)
+        ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
+
+        for r_i in ri_powerset:
+            for v_i in vi_range:
+                lhs = v_i * alpha[i][v_i][r_i] - pay[i][v_i][r_i]
+                for v_i_prime in vi_range:
+                    rhs = v_i * alpha[i][v_i_prime][r_i] - pay[i][v_i_prime][r_i]
+                    model.addConstr(lhs >= rhs, name=f"IC_val_i{i}_v{v_i}_v'{v_i_prime}_r{''.join(map(str, sorted(r_i)))}")
+
+    # Add Reporting (edge set) IC constraints
+    for i in range(1, num_players + 1):
+        vi_range = range(b[i - 1] + 1)
+        ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
+
+        for v_i in vi_range:
+            for r_i in ri_powerset:
+                lhs = v_i * alpha[i][v_i][r_i] - pay[i][v_i][r_i]
+                for r_i_prime in ri_powerset:
+                    if not r_i_prime.issubset(r_i) or r_i_prime == r_i:
+                        continue
+                    rhs = v_i * alpha[i][v_i][r_i_prime] - pay[i][v_i][r_i_prime]
+                    model.addConstr(lhs >= rhs, name=f"IC_rep_i{i}_v{v_i}_r{''.join(map(str, sorted(r_i)))}_r'{''.join(map(str, sorted(r_i_prime)))}")
+
 
 except Exception as e:
     print("Exception during optimization")
