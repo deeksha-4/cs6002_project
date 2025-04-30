@@ -33,7 +33,7 @@ try:
     # Example data
     b = [100, 100]
     R = [[], []]
-    source = [1, 2]  # Players which are connected to source
+    source = [1,2]  # Players which are connected to source
     num_players = len(b)
 
     # f[i][v] = probability player i has value v
@@ -86,7 +86,7 @@ try:
         
         # Ensure sum of allocations over all players is 1
         alloc_sum = sum(g_vars[i][combo] for i in range(1, num_players + 1))
-        model.addConstr(alloc_sum == 1, name=f"sum_alloc_{make_theta_name(combo)}")
+        model.addConstr(alloc_sum <= 1, name=f"sum_alloc_{make_theta_name(combo)}")
 
         # Build the reported network graph from this strategy profile
         reported_edges = defaultdict(set)
@@ -228,6 +228,24 @@ try:
 
     model.setObjective(objective_expr, GRB.MAXIMIZE)
     model.optimize()
+
+    if model.status == GRB.OPTIMAL:
+        
+        print("\n--- Allocation (g_i) Values ---\n")
+        for i in range(1, num_players + 1):
+            for combo, var in g_vars[i].items():
+                print(f"g_{i}[{make_theta_name(combo)}] = {var.X}")
+        
+        print("\n--- Payment (p_i) Values ---\n")
+        for i in range(1, num_players + 1):
+            for combo, var in p_vars[i].items():
+                print(f"p_{i}[{make_theta_name(combo)}] = {var.X}")
+    else:
+        print("Optimization did not find an optimal solution.")
+
+    
+
+
 
 except Exception as e:
     print("Exception during optimization")
