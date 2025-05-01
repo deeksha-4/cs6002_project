@@ -32,8 +32,8 @@ try:
 
     # Example data
     b = [10, 10, 10]
-    R = [[], [], []]
-    source = [1,2,3]  # Players which are connected to source
+    R = [[2,3], [], []]
+    source = [1]  # Players which are connected to source
     num_players = len(b)
 
     # f[i][v] = probability player i has value v
