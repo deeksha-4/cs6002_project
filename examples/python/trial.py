@@ -31,9 +31,9 @@ try:
     model = Model()
 
     # Example data
-    b = [100, 100]
-    R = [[], []]
-    source = [1,2]  # Players which are connected to source
+    b = [10, 10, 10]
+    R = [[], [], []]
+    source = [1,2,3]  # Players which are connected to source
     num_players = len(b)
 
     # f[i][v] = probability player i has value v
@@ -244,7 +244,7 @@ try:
 
             # Print each player's allocation and payment
             for i in range(num_players):
-                print(f"{i+1} {value_profile[0]} {value_profile[1]} alloc={allocs[i]:.4f} pay={pays[i]:.4f}")
+                print(f"{i+1} {value_profile[0]} {value_profile[1]} {value_profile[2]} alloc={allocs[i]:.4f} pay={pays[i]:.4f}")
     else:
         print("Optimization did not find an optimal solution.")
 
