@@ -3,7 +3,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 # Setup
-case = 'n=3_[10,10,10]_[[2],[3],[]]_[1]'
+case = 'n=3_[10,10,10]_[[2,3],[],[]]_[1]'
 allocations = {}
 
 # Target v3 slices to visualize
@@ -72,7 +72,7 @@ legend_elements = [
     mpatches.Patch(facecolor='red', edgecolor='black', label='Player 2'),
     mpatches.Patch(facecolor='gray', edgecolor='black', label='No Allocation')
 ]
-fig.legend(handles=legend_elements, loc='lower center', ncol=3, bbox_to_anchor=(0.5, -0.02))
+fig.legend(handles=legend_elements, loc='lower center', ncol=3, bbox_to_anchor=(0.5, 0.02))
 
 fig.suptitle("Allocation Outcomes for Different v3 Slices", fontsize=16)
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
