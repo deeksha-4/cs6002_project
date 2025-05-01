@@ -31,7 +31,7 @@ try:
     model = Model()
 
     # Example data
-    b = [100, 100]
+    b = [10, 10]
     R = [[], []]
     source = [1,2]  # Players which are connected to source
     num_players = len(b)
@@ -231,15 +231,20 @@ try:
 
     if model.status == GRB.OPTIMAL:
         
-        print("\n--- Allocation (g_i) Values ---\n")
-        for i in range(1, num_players + 1):
-            for combo, var in g_vars[i].items():
-                print(f"g_{i}[{make_theta_name(combo)}] = {var.X}")
-        
-        print("\n--- Payment (p_i) Values ---\n")
-        for i in range(1, num_players + 1):
-            for combo, var in p_vars[i].items():
-                print(f"p_{i}[{make_theta_name(combo)}] = {var.X}")
+        print("\n--- Allocations and Payments for Truthful Reports ---\n")
+        for combo in theta_vars:
+            is_truthful = all(r_i == frozenset(R[i]) for i, (_, r_i) in enumerate(combo))
+            if not is_truthful:
+                continue
+
+            # Extract reported values
+            value_profile = [v_i for (v_i, _) in combo]
+            allocs = [g_vars[i + 1][combo].X for i in range(num_players)]
+            pays = [p_vars[i + 1][combo].X for i in range(num_players)]
+
+            # Print each player's allocation and payment
+            for i in range(num_players):
+                print(f"{i+1} {value_profile[0]} {value_profile[1]} alloc={allocs[i]:.4f} pay={pays[i]:.4f}")
     else:
         print("Optimization did not find an optimal solution.")
 
