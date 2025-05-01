@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
+import sys
 # Initialize allocation map: (b1, b2) -> allocation (0, 1, or -1 for empty)
+case = 'myerson_20,10'
 allocations = {}
-
 # Read the results file (output.txt)
-with open('output.txt', 'r') as f:
+with open('../../results/' + case, 'r') as f:
     for line in f:
         parts = line.strip().split()
         if len(parts) != 5:
@@ -58,4 +58,4 @@ plt.yticks(np.arange(max_b2+1))
 plt.grid(visible=True, color='gray', linestyle='--', alpha=0.3)
 
 # Show plot
-plt.show()
+plt.savefig('../../plots/' + case)

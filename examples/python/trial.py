@@ -31,9 +31,9 @@ try:
     model = Model()
 
     # Example data
-    b = [10, 10]
-    R = [[], []]
-    source = [1,2]  # Players which are connected to source
+    b = [20, 10]
+    R = [[2], []]
+    source = [1]  # Players which are connected to source
     num_players = len(b)
 
     # f[i][v] = probability player i has value v
