@@ -3,7 +3,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 # Setup
-case = 'n=3_[10,10,10]_[[2,3],[],[]]_[1]'
+case = 'n=3_[10,10,10]_[[],[3],[]],[1,2]'
 allocations = {}
 
 # Target v3 slices to visualize

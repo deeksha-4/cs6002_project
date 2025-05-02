@@ -30,9 +30,9 @@ def get_informed_players(source_nodes, reported_edges, num_players):
 try:
     model = Model()
 
-    # Example data
-    b = [10, 10, 10]
-    R = [[2,3], [], []]
+# -------------------- Problem Setup --------------------
+    b = [10, 10, 10] # Maximum possible value for each player
+    R = [[2,3], [], []] # Set of players to which one player is possibly connected
     source = [1]  # Players which are connected to source
     num_players = len(b)
 
@@ -52,11 +52,7 @@ try:
         h_i[frozenset(R[i])] = 1.0
         h.append(h_i)
 
-    # Optional: pretty print
-    # for i in range(num_players):
-    #     print(f"f[{i}] = {f[i]}")
-    #     print(f"h[{i}] = { {tuple(r): p for r, p in h[i].items()} }")
-
+# -------------------- Variable Generation --------------------
     # Generate all possible (v_i, r_i) pairs for each i
     options_per_i = []
     for i in range(num_players):
@@ -72,7 +68,6 @@ try:
     for combo in product(*options_per_i):
         theta_vars.add(combo)
         var_name = make_theta_name(combo)
-        # print(var_name)
         for i in range(1, num_players + 1):
             p_var = model.addVar(vtype=GRB.CONTINUOUS, name=f"p{i}_{var_name}")
             g_var = model.addVar(vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name=f"g{i}_{var_name}")
@@ -81,9 +76,8 @@ try:
 
     model.update()
 
-
-    for combo in theta_vars:
-        
+# -------------------- Allocation Constraints --------------------
+    for combo in theta_vars:    
         # Ensure sum of allocations over all players is 1
         alloc_sum = sum(g_vars[i][combo] for i in range(1, num_players + 1))
         model.addConstr(alloc_sum <= 1, name=f"sum_alloc_{make_theta_name(combo)}")
@@ -97,23 +91,14 @@ try:
 
         # Perform DFS from source to find informed players
         informed = get_informed_players(source, reported_edges, num_players)
-        
-        # print(f"Theta: {theta_vars[combo].VarName}")
-        # print(f"Informed players: {informed}")
-        # print()
 
         # For each uninformed player, force g_i = 0 and p_i = 0
         for i in range(1, num_players + 1):
             if i not in informed:
                 model.addConstr(g_vars[i][combo] == 0, name=f"uninformed_g{i}_{make_theta_name(combo)}")
                 model.addConstr(p_vars[i][combo] == 0, name=f"uninformed_p{i}_{make_theta_name(combo)}")
-        
-    # Print all created variables
-    # for combo in theta_vars:
-    #     print(f"Theta: {theta_vars[combo].VarName}")
-        # for i in range(1,num_players+1):
-        #     print(f"  P{i}: {p_vars[i][combo].VarName}, G{i}: {g_vars[i][combo].VarName}")
 
+# -------------------- Alpha Computation --------------------
     # Compute α_i(v_i, r_i) for all i, v_i, r_i
     alpha = {i: defaultdict(lambda: defaultdict(float)) for i in range(1, num_players + 1)}
 
@@ -141,6 +126,7 @@ try:
 
                 alpha[i][v_i][r_i] = alpha_sum_expr
 
+# -------------------- Monotonicity Constraints --------------------
     # Add monotonicity constraints: αᵢ(vᵢ+1, rᵢ) ≥ αᵢ(vᵢ, rᵢ)
     for i in range(1, num_players + 1):
         vi_range = range(b[i - 1] + 1)
@@ -153,7 +139,7 @@ try:
                 model.addConstr(alpha_next >= alpha_current,
                                 name=f"monotonicity_alpha_i{i}_r{''.join(map(str, sorted(r_i)))}_v{v_i}")
 
-
+# -------------------- Payment Computation --------------------
     # Compute pay_i(v_i, r_i) for all i, v_i, r_i
     pay = {i: defaultdict(lambda: defaultdict(float)) for i in range(1, num_players + 1)}
 
@@ -180,6 +166,7 @@ try:
 
                 pay[i][v_i][r_i] = pay_sum_expr
 
+# -------------------- Individual Constraints --------------------
     # Add constraints: pay_i(0, r_i) ≤ 0 for all i, r_i
     for i in range(1, num_players + 1):
         ri_powerset = [frozenset(r) for r in powerset(R[i - 1])]
@@ -214,6 +201,7 @@ try:
                     rhs = v_i * alpha[i][v_i][r_i_prime] - pay[i][v_i][r_i_prime]
                     model.addConstr(lhs >= rhs, name=f"IC_rep_i{i}_v{v_i}_r{''.join(map(str, sorted(r_i)))}_r'{''.join(map(str, sorted(r_i_prime)))}")
 
+ # -------------------- Objective Function --------------------
     # Define the objective: maximize expected revenue
     objective_expr = 0
 
@@ -222,13 +210,16 @@ try:
         R_i = frozenset(R[i - 1])  # fixed truthful report
 
         for v_i in vi_range:
-            prob = f[i - 1][v_i]  # f_i(v_i)
+            prob = f[i - 1][v_i]
             payment = pay[i][v_i][R_i]
             objective_expr += prob * payment
 
     model.setObjective(objective_expr, GRB.MAXIMIZE)
+
+# -------------------- Solve Model --------------------
     model.optimize()
 
+# -------------------- Output Results --------------------
     if model.status == GRB.OPTIMAL:
         
         print("\n--- Allocations and Payments for Truthful Reports ---\n")
@@ -247,10 +238,6 @@ try:
                 print(f"{i+1} {value_profile[0]} {value_profile[1]} {value_profile[2]} alloc={allocs[i]:.4f} pay={pays[i]:.4f}")
     else:
         print("Optimization did not find an optimal solution.")
-
-    
-
-
 
 except Exception as e:
     print("Exception during optimization")
